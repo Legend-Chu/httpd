@@ -1,88 +1,74 @@
 #include <iostream>
-#include <stdio.h>
-#include <WinSock2.h>
-#pragma comment(lib, "WS2_32.lib")
+#include <winsock2.h>
+
+#pragma comment(lib, "ws2_32.lib") // 加载 Winsock 库
 
 using namespace std;
 
-class Solution
+int main()
 {
-private:
-    void error_die(const char *str)
+    WSADATA wsaData;
+    SOCKET serverSocket, clientSocket;
+    sockaddr_in serverAddr, clientAddr;
+    int clientAddrLen = sizeof(clientAddr);
+
+    // 初始化 Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
-        perror(str);
-        exit(1);
+        cout << "Winsock initialization failed!" << endl;
+        return 1;
     }
 
-public:
-    // 参数port表示端口
-    int startup(unsigned short *port)
+    // 创建套接字
+    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverSocket == INVALID_SOCKET)
     {
-        // 1 网络通讯初始化
-        WSADATA data;
-        int ret = WSAStartup(MAKEWORD(1, 1), &data);
-        if (ret)
-        {
-            error_die("WSAStartup");
-        }
-        // 2 套接字初始化
-        int server_socket = socket(PF_INET, SOCK_STREAM, 0);
-        if (server_socket == -1)
-        {
-            error_die("套接字");
-        }
-
-        // 3 设置端口复用
-        int opt = 1;
-        ret = setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
-        if (ret == -1)
-        {
-            error_die("setsockopt");
-        }
-        // 4 配置服务器端的网络地址
-        struct sockaddr_in server_addr;
-        memset(&server_socket, 0, sizeof(server_addr));
-        server_addr.sin_family = AF_INET;
-        // 配置端口
-        server_addr.sin_port = htons(*port);
-        // 配置IP地址
-        server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-        // 5 绑定套接字
-        int bind_socket = bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        if (bind_socket < 0)
-        {
-            error_die("bind");
-        }
-
-        int nameLen = sizeof(server_addr);
-        // 动态分配端口
-        if (*port == 0)
-        {
-            if (getsockname(server_socket, (struct sockaddr *)&server_addr, &nameLen) < 0)
-            {
-                error_die("getSockName");
-            }
-            *port = server_addr.sin_port;
-        }
-
-        // 6 创建监听队列
-        if (listen(server_socket, 5) < 0)
-        {
-            error_die("listen");
-        }
-
-        return server_socket;
+        cout << "Socket creation failed!" << endl;
+        WSACleanup();
+        return 1;
     }
-};
 
-int main(void)
-{
+    // 配置服务器地址
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddr.sin_port = htons(8080);
 
-    Solution s;
-    // 端口长度 = unsigned short的长度 = 0-65553
-    unsigned short port = 8080;
-    int server_sock = s.startup(&port);
-    cout << "httpd服务已启动，正在监听" << port << "端口" << endl;
+    // 绑定套接字
+    if (bind(serverSocket, (sockaddr *)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+    {
+        cout << "Bind failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // 开始监听
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
+    {
+        cout << "Listen failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    cout << "Server is listening on port 8080..." << endl;
+
+    // 接受客户端连接
+    clientSocket = accept(serverSocket, (sockaddr *)&clientAddr, &clientAddrLen);
+    if (clientSocket == INVALID_SOCKET)
+    {
+        cout << "Accept failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    cout << "Client connected!" << endl;
+
+    // 清理
+    closesocket(clientSocket);
+    closesocket(serverSocket);
+    WSACleanup();
+
     return 0;
 }
