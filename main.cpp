@@ -26,7 +26,7 @@ public:
             error_die("WSAStartup");
         }
         // 2 套接字初始化
-        int server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+        int server_socket = socket(PF_INET, SOCK_STREAM, 0);
         if (server_socket == -1)
         {
             error_die("套接字");
